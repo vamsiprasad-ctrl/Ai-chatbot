@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vamsi AI Chat</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial;
+            padding: 20px;
+            background: #f2f2f2;
+            color: #000;
+            transition: background 0.3s, color 0.3s;
+        }
+        body.dark {
+            background: #121212;
+            color: #eee;
+        }
+        #chat {
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            height: 400px;
+            overflow-y: scroll;
+            margin-bottom: 10px;
+        }
+        body.dark #chat {
+            background: #1e1e1e;
+        }
+        .msg { margin-bottom: 10px; }
+        .user { color: blue; }
+        .bot { color: green; }
+        body.dark .user { color: #9ecfff; }
+        body.dark .bot { color: #90ee90; }
+
+        input, button, select {
+            padding: 10px;
+            margin: 5px;
+        }
+        .code-block {
+            background: #eee;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 5px;
+            position: relative;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            padding: 2px 6px;
+            cursor: pointer;
+        }
+        body.dark .code-block { background: #2d2d2d; }
+    </style>
+</head>
+<body>
+    <h2>💬AI Chat with Vamsi</h2>
+
+    <div>
+        Mode:
+        <select id="mode">
+            <option value="default">Assistant</option>
+            <option value="coder">Code Debugger</option>
+            <option value="career">Career Mentor</option>
+            <option value="explainlike5">Explain Like I'm 5</option>
+        </select>
+        <button onclick="clearChat()">🧹 Clear</button>
+        <button onclick="downloadChat()">⬇ Download</button>
+        <button onclick="toggleTheme()">🌙 Toggle Theme</button>
+    </div>
+
+    <div id="chat"></div>
+
+    <input id="message" placeholder="Type your message" size="60">
+    <button onclick="sendMessage()">Send</button>
+    <button onclick="startVoiceInput()">🎤 Speak</button>
+
+    <hr>
+
+    <input type="file" id="imageInput">
+    <button onclick="acknowledgeFile()">🗂 Upload File (No Processing)</button>
+    <br>
+    <button onclick="window.location.href='/export-pdf'">📄 Export Chat as PDF</button>
+    <button onclick="window.location.href='/export-docx'">📝 Export Chat as DOCX</button>
+
+    <script>
+        function appendMessage(role, text) {
+            const chat = document.getElementById("chat");
+            const div = document.createElement("div");
+            div.className = "msg " + role;
+            if (text.includes("```")) {
+                const code = text.match(/```([a-z]*)\n([\s\S]*?)```/);
+                if (code) {
+                    const language = code[1];
+                    const codeText = code[2];
+                    const parts = text.split(/```[\s\S]*?```/);
+                    let html = `<strong>${role === 'user' ? 'You' : 'Bot'}:</strong> ${parts[0] || ''}`;
+                    html += `<div class='code-block'><button class='copy-btn' onclick='copyToClipboard(this)'>📋 Copy</button><pre><code>${codeText}</code></pre></div>`;
+                    html += parts[1] ? `<br>${parts[1]}` : '';
+                    div.innerHTML = html;
+                } else {
+                    div.innerHTML = `<strong>${role === 'user' ? 'You' : 'Bot'}:</strong> ${text}`;
+                }
+            } else {
+                div.innerHTML = `<strong>${role === 'user' ? 'You' : 'Bot'}:</strong> ${text}`;
+            }
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        function copyToClipboard(btn) {
+            const code = btn.nextElementSibling.innerText;
+            navigator.clipboard.writeText(code);
+            btn.innerText = '✅ Copied';
+            setTimeout(() => btn.innerText = '📋 Copy', 2000);
+        }
+
+        function sendMessage() {
+            const msg = document.getElementById("message").value;
+            const mode = document.getElementById("mode").value;
+            if (!msg.trim()) return;
+
+            appendMessage('user', msg);
+            document.getElementById("message").value = "";
+
+            fetch("/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: msg, mode: mode })
+            })
+            .then(res => res.json())
+            .then(data => appendMessage('bot', data.reply));
+        }
+
+        function clearChat() {
+            fetch("/clear", { method: "POST" })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById("chat").innerHTML = "";
+                appendMessage('bot', data.reply);
+            });
+        }
+
+        function downloadChat() {
+            window.location.href = "/download";
+        }
+
+        function acknowledgeFile() {
+            const file = document.getElementById("imageInput").files[0];
+            if (!file) return alert("No file selected.");
+            appendMessage('bot', `🗂 You selected: ${file.name} (no processing)`);
+        }
+
+        function startVoiceInput() {
+            const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = 'en-IN';
+            recognition.start();
+            recognition.onresult = function(event) {
+                const speech = event.results[0][0].transcript;
+                document.getElementById("message").value = speech;
+            };
+        }
+
+        function toggleTheme() {
+            document.body.classList.toggle("dark");
+        }
+
+        document.getElementById("message").addEventListener("keydown", function(event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>

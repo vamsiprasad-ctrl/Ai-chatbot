@@ -1,3 +1,7 @@
-flask
-openai>=1.0.0
+Flask
+requests
 python-dotenv
+fpdf
+python-docx
+pytesseract
+Pillow
